@@ -1,63 +1,104 @@
-import matplotlib
-import matplotlib.pyplot as plt
+import numpy as np
+from chaco.api import ArrayPlotData, DataRange1D, Plot, LinearMapper
+from enable.api import Component, ComponentEditor
+from traits.api import HasTraits, Instance
+from traitsui.api import Item, Group, View
 
-matplotlib.use("macosx")
 
-from time import sleep
+class ScanPlotter(HasTraits):
+    plot = Instance(Component)
+    size = (600, 600)
 
-#
-class ScanPlotter(object):
-    def __init__(self):
-        self.fig = plt.figure(figsize=(6, 6))
-        self.ax = plt.subplot(111, projection='polar')
-        self.bars = None
-        self.background = None
-        self.index = 0
+    traits_view = View(
+        Group(
+            Item('plot', editor=ComponentEditor(size=size), show_label=False),
+            orientation="vertical"
+        ),
+        resizable=True,
+        width=size[0],
+        height=size[1]
+    )
 
-    def terminate(self):
-        plt.close('all')
-
-    def call_back(self):
-        while self.pipe.poll():
-            command = self.pipe.recv()
-            if command is None:
-                self.terminate()
-                return False
-            else:
-                scan = command
-                self.plot_scan(scan)
-
-        return True
-
-    def __call__(self, pipe):
-        # print("Starting ScanPlotter in separate process...")
-        self.pipe = pipe
-
-        while True:
-            self.call_back()
+    def __init__(self,
+                 x_range=DataRange1D(low=-4000, high=4000),
+                 y_range=DataRange1D(low=-4000, high=4000),
+                 title = "URG-04LX Laser Scan Live View"):
+        '''
+        Initializes the plotter
+        :param x_range: The (min,max) range of the x values (+/- detection range)
+        :param y_range: The (min,max) range of the y values (+/- detection range)
+        '''
+        super().__init__()
+        self.x_range = x_range
+        self.y_range = y_range
+        self.plot = None
+        self.title = title
 
     def convert_data(scan):
-        N = len(scan.payload)
+        '''
+        Converts scan data from steps & distances to angles & distances
+        :return: tuple containing the angles & distances in the form of lists
+        '''
         ranges = []
         angles = []
-        for step in range(0, N):
+        for step in range(0, len(scan.payload)):
             r = scan.payload[step]
             angle = scan.get_scan_angle(step)
             ranges.append(r)
             angles.append(angle)
         return angles, ranges
 
-    def plot_scan(self, scan):
-        angles, ranges = ScanPlotter.convert_data(scan)
-        if self.bars is None:
-            self.bars = self.ax.bar(angles, ranges, width=0.1)
-            self.fig.canvas.draw()
-            self.background = self.fig.canvas.copy_from_bbox(self.ax.bbox)
+    def _plot_scan(self,
+                   theta,
+                   r,
+                   marker_color='orange',
+                   marker_size=1.0,
+                   fill_color=(0, 1.0, 0, 0.8)):
+        '''
+        Plot a laser scan
+        :param theta: The list of angles for this scan
+        :param r: The list of ranges associated w/ the angles
+        :param marker_color: The color of the marker indicating the "hit point"
+        :param marker_size: The size of the marker indicating the "hit point"
+        :param fill_color: The color of the polygon indicating the area swept out by the laser's rays
+        '''
+        index_data = r * np.cos(theta)
+        value_data = r * np.sin(theta)
+        plot_data = ArrayPlotData(index=index_data, value=value_data)
+
+        if self.plot is None:
+            # Create plot only once, update data otherwise and let
+            # chaco handle the rest
+            plot = Plot(plot_data)
+            plot.range2d.x_range = self.x_range
+            plot.range2d.y_range = self.y_range
+            plot.x_mapper = LinearMapper(range=self.x_range)
+            plot.y_mapper = LinearMapper(range=self.y_range)
+            plot.title = self.title
+
+            plot.plot(
+                ('index', 'value'),
+                type='scatter',
+                marker='dot',
+                marker_size=marker_size,
+                color=marker_color
+            )
+
+            plot.plot(
+                ('index', 'value'),
+                type='polygon',
+                marker="dot",
+                marker_size=1,
+                face_color=fill_color,
+                edge_color=(0, 0, 0, 0.8),
+            )
+
+            self.plot = plot
         else:
-            self.fig.canvas.restore_region(self.background)
-            for bar, r in zip(self.bars, ranges):
-                bar.set_height(r)
-                bar.set_facecolor('r')
-                self.ax.draw_artist(bar)
-            self.fig.canvas.draw()
-        plt.pause(0.05)
+            self.plot.data.set_data('index', plot_data["index"])
+            self.plot.data.set_data('value', plot_data["value"])
+            self.plot.request_redraw()
+
+    def plot_scan(self, scan):
+        theta, r = ScanPlotter.convert_data(scan)
+        self._plot_scan(theta, r)

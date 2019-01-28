@@ -7,18 +7,24 @@ class SerialPort:
     This class provides a wrapper around PySerial's serial class to handle reties & some errors
     '''
 
+    def __init__(self,
+                 port_name,
+                 baud_rate=115200,
+                 timeout=0.1):
+        self.port = serial.Serial()
+        self.port_name = port_name
+        self.baud_rate = baud_rate
+        self.timeout = timeout
+
     @tenacity.retry(wait=tenacity.wait_fixed(5),
                     stop=tenacity.stop_after_attempt(3))
-    def __init__(self):
-        self.port = serial.Serial()
-
-    def open(self, port_name, baud_rate=115200, timeout=0.1):
+    def open(self):
         '''
         Open a serial port with appropriate default settings for the robot
         '''
-        self.port.baudrate = baud_rate
-        self.port.timeout = timeout
-        self.port.port = port_name
+        self.port.baudrate = self.baud_rate
+        self.port.timeout = self.timeout
+        self.port.port = self.port_name
         self.port.parity = serial.PARITY_NONE
 
         if self.port.is_open:
@@ -39,6 +45,10 @@ class SerialPort:
             print(f"Ex: {e}")
             self.handle_serial_port_failure(e)
             raise e
+
+    @property
+    def is_open(self):
+        return self.port.is_open
 
     def handle_serial_port_failure(self, ex):
         '''
@@ -75,3 +85,5 @@ class SerialPort:
         '''
         self.port.close()
         return self.port.is_open
+
+

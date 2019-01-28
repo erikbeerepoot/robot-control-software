@@ -1,38 +1,13 @@
-import multiprocessing as mp
+from threading import Thread
 
 import tenacity
+from numpy import *
 from pynput import keyboard
 
+from comm.SerialPort import SerialPort
 from scan.plot.ScanPlotter import ScanPlotter
 from scan.tools.ScanParser import ScanParser
 from scan.tools.ScanReaderWriter import ScanReaderWriter
-from comm.SerialPort import  SerialPort
-
-break_loop = False
-
-
-class ScanPipe:
-    def __init__(self):
-        mp.set_start_method('spawn')
-
-        self.parent_connection, self.child_connection = mp.Pipe()
-        self.plotter = ScanPlotter()
-        self.plot_process = mp.Process(
-            target=self.plotter,
-            args=(self.child_connection,)
-
-        )
-        self.plot_process.start()
-
-    def plot(self, new_scans, finished=False):
-        send = self.parent_connection.send
-        if finished:
-            send(None)
-        else:
-            [send(scan) for scan in new_scans]
-
-    def terminate(self):
-        self.plot_process.join()
 
 
 def on_release(key):
@@ -43,50 +18,72 @@ def on_release(key):
         return False
 
 
-def plot_scans_from_file():
+def load_scans_from_file():
     scan_r_w = ScanReaderWriter("~/Documents/scans.dat")
     scans, _ = scan_r_w.load_scans()
+    return scans
+
+    # plotter.plot_scan(scans[0])
+    # for scan in scans:
+
+
+class SerialReader(Thread):
+    def __init__(self, port_name, read_callback):
+        super().__init__()
+        self.terminate = False
+        self.port = SerialPort(port_name)
+        self.read_callback = read_callback
+
+    def kill(self):
+        self.terminate = True
+
+    def run(self):
+        if not self.open_serial_gracefully():
+            return
+
+        while not self.terminate:
+            if not self.port.is_open and not self.open_serial_gracefully():
+                return
+
+            try:
+                serial_data = self.port.read_all()
+                decoded_data = str(serial_data.decode("UTF-8"))
+                self.read_callback(decoded_data)
+            except UnicodeDecodeError:
+                print("Unable to decode scan.")
+                continue
+
+        print("SerialReader thread exiting...")
+        self.port.close()
+
+    def open_serial_gracefully(self):
+        print("Opening serial port...", end='', flush=True)
+        try:
+            self.port.open()
+        except tenacity.RetryError:
+            pass
+
+        print(f"{'success' if self.port.is_open else 'failure'}.")
+        return self.port.is_open
+
+
+plotter = ScanPlotter()
+parser = ScanParser()
+data = ''
+
+
+def process_scan_data(new_data):
+    global data
+    scans, remaining_data = parser.parse_scan_data(str(new_data))
+    data = data + str(remaining_data)
+    [plotter.plot_scan(scan) for scan in scans]
 
 
 if __name__ == "__main__":
-    # plot_scans_from_file()
+    reader = SerialReader("/dev/tty.usbserial-FTVWEM2P", process_scan_data)
+    reader.start()
 
-    port = SerialPort()
-    plotter = ScanPlotter()
-    pipe = ScanPipe()
-    try:
-        # Open bluetooth port to stream scans
-        # port_name = "/dev/tty.robot-RNI-SPP"
-        port_name = "/dev/tty.usbserial-FTVWEM2P"
-        port.open(port_name)
-
-        parser = ScanParser()
-        data = ''
-        if port.port.is_open:
-            while True:
-                if break_loop:
-                    break
-
-                if not port.port.is_open:
-                    port.open(port_name)
-
-                serial_data = port.read_all()
-
-                # Process scans in the buffer, and return the remaining data for the next loop
-                try:
-                    data = str(serial_data.decode("UTF-8"))
-
-                    scans, data = parser.parse_scan_data(data)
-
-                    if len(scans) > 0:
-                        plotter.plot_scan(scans[0])
-
-                except UnicodeDecodeError:
-                    continue
-
-        port.close()
-        # pipe.terminate()
-    except tenacity.RetryError:
-        print("Maximum number of retries exceeded. Giving up.")
-    finally:
-        print("Done.")
+    plotter.configure_traits()
+    reader.kill()
+    reader.join()
+    print("Done.")
