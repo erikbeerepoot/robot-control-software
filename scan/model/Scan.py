@@ -33,7 +33,15 @@ class Scan:
         self.timestamp = timestamp
         self.payload = payload
 
-    # 0 step is -45 -> 315
+    @property
+    def is_valid(self):
+        return self.params is not None \
+               and self.status is not None \
+               and self.timestamp is not None \
+               and self.payload is not None
+
+        # 0 step is -45 -> 315
+
     #  768 (last) step is 225
     def get_scan_angle(self, step):
         return math.radians(

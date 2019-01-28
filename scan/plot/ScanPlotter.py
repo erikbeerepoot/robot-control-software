@@ -22,7 +22,7 @@ class ScanPlotter(HasTraits):
     def __init__(self,
                  x_range=DataRange1D(low=-4000, high=4000),
                  y_range=DataRange1D(low=-4000, high=4000),
-                 title = "URG-04LX Laser Scan Live View"):
+                 title="URG-04LX Laser Scan Live View"):
         '''
         Initializes the plotter
         :param x_range: The (min,max) range of the x values (+/- detection range)
@@ -97,8 +97,9 @@ class ScanPlotter(HasTraits):
         else:
             self.plot.data.set_data('index', plot_data["index"])
             self.plot.data.set_data('value', plot_data["value"])
-            self.plot.request_redraw()
+            # self.plot.request_redraw()
 
     def plot_scan(self, scan):
-        theta, r = ScanPlotter.convert_data(scan)
-        self._plot_scan(theta, r)
+        if scan is not None and scan.is_valid:
+            theta, r = ScanPlotter.convert_data(scan)
+            self._plot_scan(theta, r)

@@ -1,8 +1,8 @@
 from threading import Thread
+from time import sleep
 
 import tenacity
 from numpy import *
-from pynput import keyboard
 
 from comm.SerialPort import SerialPort
 from scan.plot.ScanPlotter import ScanPlotter
@@ -10,22 +10,28 @@ from scan.tools.ScanParser import ScanParser
 from scan.tools.ScanReaderWriter import ScanReaderWriter
 
 
-def on_release(key):
-    global break_loop
-    if key == keyboard.Key.esc:
-        # Stop listener
-        break_loop = True
-        return False
+class SimulatedScanStreamer(Thread):
 
+    def __init__(self, read_callback):
+        super().__init__()
+        self.terminate = False
+        self.scans = SimulatedScanStreamer.load_scans_from_file()
+        self.read_callback = read_callback
 
-def load_scans_from_file():
-    scan_r_w = ScanReaderWriter("~/Documents/scans.dat")
-    scans, _ = scan_r_w.load_scans()
-    return scans
+    def kill(self):
+        self.terminate = True
 
-    # plotter.plot_scan(scans[0])
-    # for scan in scans:
+    @staticmethod
+    def load_scans_from_file():
+        scan_r_w = ScanReaderWriter("~/Documents/scans.dat")
+        scans, _ = scan_r_w.load_scans()
+        return scans
 
+    def run(self):
+        while not self.terminate:
+            for scan in self.scans:
+                self.read_callback(scan)
+                sleep(0.05)
 
 class SerialReader(Thread):
     def __init__(self, port_name, read_callback):
@@ -70,20 +76,43 @@ class SerialReader(Thread):
 plotter = ScanPlotter()
 parser = ScanParser()
 data = ''
+scan_count = 0
 
+def plot_scan(scan):
+    global scan_count
+    plotter.plot_scan(scan)
 
 def process_scan_data(new_data):
-    global data
+    global data, scan_count
     scans, remaining_data = parser.parse_scan_data(str(new_data))
     data = data + str(remaining_data)
-    [plotter.plot_scan(scan) for scan in scans]
+    scan_count += len(scans)
+
+    if len(scans) > 0:
+        plotter.plot_scan(scans[0])
+    # [ for scan in scans]
 
 
 if __name__ == "__main__":
-    reader = SerialReader("/dev/tty.usbserial-FTVWEM2P", process_scan_data)
-    reader.start()
+    simulated = True
+    if simulated:
+        # Non-functional
+        streamer = SimulatedScanStreamer(plot_scan)
+        streamer.start()
 
-    plotter.configure_traits()
-    reader.kill()
-    reader.join()
+        plotter.configure_traits()
+
+        streamer.kill()
+        streamer.join()
+    else:
+        # reader = SerialReader("/dev/tty.usbserial-FTVWEM2P", process_scan_data)
+        reader = SerialReader("/dev/tty.robot-RNI-SPP", process_scan_data)
+        reader.start()
+
+        plotter.configure_traits()
+
+        reader.kill()
+        reader.join()
+
+    print(f"Processed {scan_count} scans.")
     print("Done.")
