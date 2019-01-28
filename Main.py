@@ -1,9 +1,10 @@
 from numpy import *
-
-from comm.SerialReader import SerialReader
+import multiprocessing as mp
+from comm.ThreadedSerialReader import ThreadedSerialReader
 from scan.plot.ScanPlotter import ScanPlotter
 from scan.tools.ScanParser import ScanParser
 from scan.tools.SimulatedScanStreamer import SimulatedScanStreamer
+from comm.ProcessSerialReader import ProcessSerialReader
 
 plotter = ScanPlotter()
 parser = ScanParser()
@@ -28,6 +29,8 @@ def process_scan_data(new_data):
 
 
 if __name__ == "__main__":
+    mp.set_start_method('spawn')
+
     simulated = True
     if simulated:
         # Non-functional
@@ -39,14 +42,12 @@ if __name__ == "__main__":
         streamer.kill()
         streamer.join()
     else:
-        # reader = SerialReader("/dev/tty.usbserial-FTVWEM2P", process_scan_data)
-        reader = SerialReader("/dev/tty.robot-RNI-SPP", process_scan_data)
-        reader.start()
+        # reader = ProcessSerialReader("/dev/tty.usbserial-FTVWEM2P", process_scan_data)
+        reader = ProcessSerialReader("/dev/tty.robot-RNI-SPP", process_scan_data)
 
         plotter.configure_traits()
 
         reader.kill()
-        reader.join()
 
     print(f"Processed {scan_count} scans.")
     print("Done.")

@@ -46,6 +46,16 @@ class SerialPort:
             self.handle_serial_port_failure(e)
             raise e
 
+    def open_serial_gracefully(self):
+        print("Opening serial port...", end='', flush=True)
+        try:
+            self.open()
+        except tenacity.RetryError:
+            pass
+
+        print(f"{'success' if self.port.is_open else 'failure'}.")
+        return self.port.is_open
+
     @property
     def is_open(self):
         return self.port.is_open

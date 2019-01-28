@@ -1,11 +1,9 @@
 from threading import Thread
 
-import tenacity
-
 from comm.SerialPort import SerialPort
 
 
-class SerialReader(Thread):
+class ThreadedSerialReader(Thread):
     def __init__(self, port_name, read_callback):
         super().__init__()
         self.terminate = False
@@ -16,11 +14,11 @@ class SerialReader(Thread):
         self.terminate = True
 
     def run(self):
-        if not self.open_serial_gracefully():
+        if not self.port.open_serial_gracefully():
             return
 
         while not self.terminate:
-            if not self.port.is_open and not self.open_serial_gracefully():
+            if not self.port.is_open and not self.port.open_serial_gracefully():
                 return
 
             try:
@@ -33,13 +31,3 @@ class SerialReader(Thread):
 
         print("SerialReader thread exiting...")
         self.port.close()
-
-    def open_serial_gracefully(self):
-        print("Opening serial port...", end='', flush=True)
-        try:
-            self.port.open()
-        except tenacity.RetryError:
-            pass
-
-        print(f"{'success' if self.port.is_open else 'failure'}.")
-        return self.port.is_open
