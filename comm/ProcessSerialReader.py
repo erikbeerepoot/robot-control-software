@@ -1,7 +1,9 @@
 import multiprocessing as mp
 from threading import Thread
+from time import sleep
 
 from comm.SerialPort import SerialPort
+
 
 class ProcessSerialReader:
     def __init__(self, port_name, read_callback):
@@ -10,8 +12,7 @@ class ProcessSerialReader:
         port = SerialPort(port_name)
         self.process = mp.Process(target=ProcessSerialReader.read_serial, args=(child_conn, port))
 
-
-        # self.read_callback = read_callback
+        # self.sp = ScanProcessor(read_callback, child_conn)
 
         self.reader = ReaderThread(read_callback, self.parent_conn)
         self.reader.start()
@@ -39,12 +40,15 @@ class ProcessSerialReader:
             except UnicodeDecodeError:
                 print("Unable to decode scan.")
                 continue
+            except BrokenPipeError:
+                break
 
         port.close()
         print("SerialReader thread exited..")
 
     def kill(self):
         self.parent_conn.send(False)
+        # self.sp.conn.send(True)
         self.reader.kill()
         self.reader.join()
 
@@ -64,9 +68,37 @@ class ReaderThread(Thread):
                 received = self.conn.recv()
                 if received is not None:
                     self.read_callback(received)
-
+            else:
+                sleep(0.1)
         print("Exited reader thread.")
 
     def kill(self):
         self.terminate = True
-3
+
+# Process-based implementation
+# class ScanProcessor:
+#     def __init__(self, read_callback, serial_conn):
+#         self.conn, term_conn = mp.Pipe()
+#         self.process = mp.Process(target=self.busy_read, args=(serial_conn, term_conn, read_callback))
+#         self.process.start()
+#
+#     @property
+#     def get_conn(self):
+#         return self.conn
+#
+#     @staticmethod
+#     def busy_read(serial_conn, term_conn, read_callback):
+#         print("Starting read loop.")
+#         while True:
+#             if serial_conn.poll():
+#                 received = serial_conn.recv()
+#                 if received is not None:
+#                     read_callback(received)
+#
+#             if term_conn.poll():
+#                 received = term_conn.recv()
+#                 if received:
+#                     break
+#
+#         print("Exited read loop.")
+
