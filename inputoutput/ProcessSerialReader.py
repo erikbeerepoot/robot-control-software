@@ -2,7 +2,7 @@ import multiprocessing as mp
 from threading import Thread
 from time import sleep
 
-from comm.SerialPort import SerialPort
+from inputoutput.SerialPort import SerialPort
 
 
 class ProcessSerialReader:

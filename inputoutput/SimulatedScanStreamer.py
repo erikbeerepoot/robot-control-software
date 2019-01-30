@@ -1,7 +1,7 @@
 from threading import Thread
 from time import sleep
 
-from scan.tools.ScanReaderWriter import ScanReaderWriter
+from inputoutput.ScanReaderWriter import ScanReaderWriter
 
 
 class SimulatedScanStreamer(Thread):

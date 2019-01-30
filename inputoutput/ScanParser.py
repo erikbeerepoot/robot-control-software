@@ -1,8 +1,8 @@
 import itertools
 import re
 
-from scan.model.Scan import *
-from scan.model.ScanError import *
+from model.Scan import *
+from model.ScanError import *
 
 
 class ScanParser:

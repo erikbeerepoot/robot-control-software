@@ -1,6 +1,6 @@
 from threading import Thread
 
-from comm.SerialPort import SerialPort
+from inputoutput.SerialPort import SerialPort
 
 
 class ThreadedSerialReader(Thread):

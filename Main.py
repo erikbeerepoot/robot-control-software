@@ -1,51 +1,57 @@
-from numpy import *
 import multiprocessing as mp
-from comm.ThreadedSerialReader import ThreadedSerialReader
-from scan.plot.ScanPlotter import ScanPlotter
-from scan.tools.ScanParser import ScanParser
-from scan.tools.SimulatedScanStreamer import SimulatedScanStreamer
-from comm.ProcessSerialReader import ProcessSerialReader
+import functools
 
-plotter = ScanPlotter()
+from view.ScanPlotter import ScanPlotter
+from inputoutput.ScanParser import ScanParser
+
+from view.MainWindow import MainWindow
+from inputoutput.ProcessSerialReader import ProcessSerialReader
+from inputoutput.SimulatedScanStreamer import SimulatedScanStreamer
+
+
 parser = ScanParser()
 data = ''
 scan_count = 0
 
 
-def plot_scan(scan):
+def plot_scan(plotter, scan):
     global scan_count
     plotter.plot_scan(scan)
 
 
-def process_scan_data(new_data):
+def process_scan_data(plotter, new_data):
     global data, scan_count
     scans, remaining_data = parser.parse_scan_data(str(new_data))
     data = data + str(remaining_data)
     scan_count += len(scans)
 
     if len(scans) > 0:
-        plotter.plot_scan(scans[0])
-    # [ for scan in scans]
+        plotter.plot_scan(scans[-1])
 
 
 if __name__ == "__main__":
     mp.set_start_method('spawn')
 
+    window = MainWindow()
+
+
+
     simulated = True
     if simulated:
         # Non-functional
-        streamer = SimulatedScanStreamer(plot_scan)
+        streamer = SimulatedScanStreamer(functools.partial(plot_scan, window.scan_plot))
         streamer.start()
 
-        plotter.configure_traits()
+        window.configure_traits()
 
         streamer.kill()
         streamer.join()
     else:
-        # reader = ProcessSerialReader("/dev/tty.usbserial-FTVWEM2P", process_scan_data)
-        reader = ProcessSerialReader("/dev/tty.robot-RNI-SPP", process_scan_data)
+        reader = ProcessSerialReader("/dev/tty.usbserial-FTVWEM2P", process_scan_data)
+        # reader = ProcessSerialReader("/dev/tty.robot-RNI-SPP", process_scan_data)
 
-        plotter.configure_traits()
+        # plotter.configure_traits()
+        window.configure_traits()
 
         reader.kill()
 

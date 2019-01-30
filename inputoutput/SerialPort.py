@@ -88,6 +88,9 @@ class SerialPort:
                 break
         return read_buffer
 
+    def send(self, data):
+        self.port.write(data)
+
     def close(self):
         '''
         Close the serial port

@@ -1,4 +1,4 @@
-from scan.tools.ScanParser import ScanParser
+from inputoutput.ScanParser import ScanParser
 from util.FileUtils import create_directory
 
 import os

@@ -1,7 +1,7 @@
 import numpy as np
 from chaco.api import DataRange1D, Plot, LinearMapper, ArrayPlotData
 from enable.api import ComponentEditor, Line
-from traits.api import HasTraits, Instance
+from traits.api import HasTraits, Instance, CFloat
 from traitsui.api import Item, Group, View
 
 from view.VelocityTool import VelocityTool
@@ -9,9 +9,12 @@ from view.VelocityTool import VelocityTool
 
 class RobotView(HasTraits):
     size = (300, 300)
-    traits_view = View(
+
+    view = View(
         Group(
             Item('plot', editor=ComponentEditor(size=size), show_label=False),
+            Item(name='velocity_x'),
+            Item(name='velocity_y'),
             orientation="vertical"
         ),
         resizable=True,
@@ -21,9 +24,20 @@ class RobotView(HasTraits):
 
     wheel_line = Instance(Line, args=())
 
+    velocity_x = CFloat(
+        0.0,
+        desc="Velocity in the x direction",
+        label="Vx"
+    )
+    velocity_y = CFloat(
+        0.0,
+        desc="Velocity in the y direction",
+        label="Vy"
+    )
+
     def __init__(self,
-                 x_range=DataRange1D(low=0, high=300),
-                 y_range=DataRange1D(low=0, high=300), *args, **kwargs):
+                 x_range=DataRange1D(low=0, high=size[0]),
+                 y_range=DataRange1D(low=0, high=size[1]), *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.robot_bounding_box = {
@@ -85,6 +99,8 @@ class RobotView(HasTraits):
     def update_velocity(self, velocity):
         target_x = 150 + velocity[0] * 150
         target_y = 150 + velocity[1] * 150
+        self.velocity_x = (target_x - 150) / 150
+        self.velocity_y = (target_y - 150) / 150
         self.plot_arrow((150, 150), (target_x, target_y), (1.0, 0, 0, 0.9), 'vel')
 
     def hover_velocity(self, hover_velocity):
@@ -174,10 +190,10 @@ class RobotView(HasTraits):
         theta = np.arccos((to_point[0] - from_point[0]) / r)
 
         # length adjustment for arrow side points
-        r_factor = 0.70 + 0.15*(r/212.5)
+        r_factor = 0.70 + 0.15 * (r / 212.5)
 
         # angle offset for arrow side points
-        angle = 0.25 - 0.125 * (r/212.5)
+        angle = 0.25 - 0.125 * (r / 212.5)
 
         # Compute where the side points should be drawn
         pos_neg = 1 if (from_point[1] < to_point[1]) else -1
