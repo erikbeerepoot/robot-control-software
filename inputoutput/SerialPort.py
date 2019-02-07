@@ -89,6 +89,11 @@ class SerialPort:
         return read_buffer
 
     def send(self, data):
+        if not self.port.is_open:
+            self.open_serial_gracefully()
+            if not self.port.is_open:
+                return
+
         self.port.write(data)
 
     def close(self):

@@ -36,8 +36,10 @@ class RobotView(HasTraits):
     )
 
     def __init__(self,
+                 velocity_callback=None,
                  x_range=DataRange1D(low=0, high=size[0]),
-                 y_range=DataRange1D(low=0, high=size[1]), *args, **kwargs):
+                 y_range=DataRange1D(low=0, high=size[1]),
+                 *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.robot_bounding_box = {
@@ -83,6 +85,7 @@ class RobotView(HasTraits):
 
         self.x_range = x_range
         self.y_range = y_range
+        self.velocity_callback = velocity_callback
 
         velocity_tool = VelocityTool(
             (150, 150),
@@ -102,6 +105,9 @@ class RobotView(HasTraits):
         self.velocity_x = (target_x - 150) / 150
         self.velocity_y = (target_y - 150) / 150
         self.plot_arrow((150, 150), (target_x, target_y), (1.0, 0, 0, 0.9), 'vel')
+
+        if self.velocity_callback is not None:
+            self.velocity_callback(self.velocity_x, self.velocity_y)
 
     def hover_velocity(self, hover_velocity):
         target_x = 150 + hover_velocity[0] * 150

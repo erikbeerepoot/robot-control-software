@@ -191,14 +191,17 @@ class ScanParser:
         :return: the parsed scans and the unparsed data that remains
         '''
         if len(data) < 1 or not isinstance(data, str):
-            return [], []
+            return [], data
 
         scan_boundaries = self.find_scan_boundaries(data)
         if len(scan_boundaries) == 0:
-            return [], []
+            return [], data
 
         # Parse scans from the data
         scans = [self.parse_scan(data[scan_boundary[0]:scan_boundary[1]]) for scan_boundary in scan_boundaries]
 
         # Return both the scans and the remaining data (so we can attempt to process that later)
-        return scans, str(data[scan_boundaries[-1][-1]:])
+        if len(scans) < 1:
+            return [], data
+        else:
+            return scans, str(data[scan_boundaries[-1][-1]:])
